@@ -6,8 +6,8 @@ This Lambda function will probe (via HTTP or HTTPS) remote destinations and if a
 
 The intention is that if your Direct Connect (DX) fails and you don't want to have a permanent backup VPN connection this will create one for you. You would configure the probes to check for the reachability of services across your DX.
 
-## WARNING:
-This will send the preshared key for an IPSEC tunnel via SNS which could well be via an unencrypted transport. Please be careful.
+## WARNINGS:
+If you let the AWS VPN service generate a preshared key then this utility will send generated preshared key for the IPSEC tunnels via SNS which could well be via an unencrypted transport. Please be careful. You can avoid this by specifying the preshared key that you want to use.
 
 #### Why would I want to use this?
 Just in case everything falls apart and you need an automatic network backdoor to your environment.
@@ -53,6 +53,9 @@ You can run this at the command line of any Linux instance running in AWS with P
   This is the remote public IP address of your VPN server.
   
   Example: 169.254.4.5 (yes, I'm aware that isn't a real public IP address)
+
+#### PRESHAREDKEY
+  Optional - use this to set up a preshared key that you will use. This is quite useful because it means your firewall/VPN termination endpoint can be preconfigured. If you do not set this the AWS service will generate a preshared key for you and you will need to configure the VPN endpoint before traffic will flow.
 
 #### VPCID
   Mandatory - must be set.

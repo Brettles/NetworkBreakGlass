@@ -8,8 +8,9 @@
 #  with the config details.
 #
 # WARNING:
-#  This will send the preshared key for an IPSEC tunnel via SNS which could
-#  well be via an unencrypted transport. Please be careful.
+#  If you do not define a preshared key for the tunnel (see below) then this
+#  code will send the auto-generated preshared key for each IPSEC tunnel via
+#  SNS which could well be via an unencrypted transport. Please be careful.
 #
 # Why would I do this?
 #  Just in case everything falls apart and you need an automatic network
@@ -68,6 +69,13 @@
 #   This is the remote public IP address of your VPN server.
 #   Example: 169.254.4.5
 #            (yes, I'm aware that isn't a real public IP address)
+#
+#  PRESHAREDKEY
+#   Optional - use this to set up a preshared key that you will use. This is
+#   quite useful because it means your firewall/VPN termination endpoint can
+#   be preconfigured. If you do not set this the AWS service will generate a
+#   preshared key for you and you will need to configure the VPN endpoint
+#   before traffic will flow.
 #
 #  VPCID
 #   Mandatory - must be set.
@@ -141,7 +149,7 @@ def CheckTargets(Targets):
 
     return any(TargetStates)
 
-def NotifyViaSNS():
+def NotifyViaSNS(PreSharedKey):
     global Logger,CustomerConfig
 
     SNSTopic = os.getenv('SNSTOPIC')
@@ -164,8 +172,8 @@ def NotifyViaSNS():
     CustomerInsideAddresses = []
     CustomerPublicAddresses = []
 
-    Config = minidom.parseString(CustomerConfig)
-    Tunnels = Config.getElementsByTagName('ipsec_tunnel')
+    CustomerPublicAddresses = []
+    Tunnels = minidom.parseString(CustomerConfig).getElementsByTagName('ipsec_tunnel')
     for T in Tunnels:
         try:
             PSK = T.getElementsByTagName('ike')[0].getElementsByTagName('pre_shared_key')[0].firstChild.wholeText
@@ -188,6 +196,14 @@ def NotifyViaSNS():
         AWSPublicAddresses.append(APA)
         CustomerInsideAddresses.append(CIA)
         AWSInsideAddresses.append(AIA)
+
+    #
+    # If the tunnel pre-shared key was specified externally then we won't bother
+    # sending it via SNS - it's more secure this way.
+    #
+    if PreSharedKey is not None:
+        PresharedKeys[0] = '<defined by user>'
+        PresharedKeys[1] = '<defined by user>'
 
     #
     # Now we can tell someone what we've been doing.
@@ -310,19 +326,23 @@ def CreateCustomerGateway(RemoteIP):
 
     return CGWId 
 
-def CreateVPNConnection(CGWId, VPGId):
+def CreateVPNConnection(CGWId, VPGId, PreSharedKey):
     global Logger,SourceData,CustomerConfig
 
     CustomerConfig = None
 
     EC2 = boto3.client('ec2')
 
+    ConnectionOptions = {'StaticRoutesOnly':True}
+    if PreSharedKey is not None:
+        ConnectionOptions['TunnelOptions'] = [{'PreSharedKey':PreSharedKey}]
+
     Logger.debug('Creating VPN connection')
     try:
         VPNConnection = EC2.create_vpn_connection(CustomerGatewayId=CGWId,
                                                   Type='ipsec.1',
                                                   VpnGatewayId=VPGId,
-                                                  Options={'StaticRoutesOnly':True})
+                                                  Options=ConnectionOptions)
     except Exception as e:
         Logger.error('Failed to create VPN connection: %s' % str(e))
         return ''
@@ -356,6 +376,12 @@ def CreateVPN():
         return
     Logger.debug('VPCID: %s' % VPCId)
 
+    PreSharedKey = os.getenv('PRESHAREDKEY')
+    if PreSharedKey == None:
+        Logger.info('PRESHAREDKEY not set - one will be auto-generated')
+    else:
+        Logger.debug('PRESHAREDKEY: %s' % PreSharedKey)
+
     Logger.info('Creating VPN connection...')
 
     VPGId = CreateOrFindVPG(VPCId)
@@ -368,7 +394,7 @@ def CreateVPN():
         Logger.info('Could not create customer gateway - stopping')
         return
 
-    VPNId = CreateVPNConnection(CGWId, VPGId)
+    VPNId = CreateVPNConnection(CGWId, VPGId, PreSharedKey)
     if len(VPNId) == 0:
         Logger.info('Could not create VPN connection - stopping')
         return
@@ -389,7 +415,7 @@ def CreateVPN():
     #
     # We're successful so notify people.
     #
-    NotifyViaSNS()
+    NotifyViaSNS(PreSharedKey)
 
     return
 
