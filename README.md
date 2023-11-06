@@ -2,7 +2,7 @@
 AWS Lambda function to automatically bring up VPN connection in case of network connectivity loss.
 
 # What is this?
-This Lambda function will probe (via HTTP or HTTPS) remote destinations and if all of them are unavailable it will bring stand up a VPN connection so that connectivity can be restored. It will then send a notification via SNS with the config details.
+This Lambda function will probe (via HTTP or HTTPS) remote destinations and if all of them are unavailable it will bring up a VPN connection so that connectivity can be restored. It will then send a notification via SNS with the config details.
 
 The intention is that if your Direct Connect (DX) fails and you don't want to have a permanent backup VPN connection this will create one for you. You would configure the probes to check for the reachability of services across your DX.
 

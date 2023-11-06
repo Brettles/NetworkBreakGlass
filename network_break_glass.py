@@ -1,5 +1,3 @@
-#!/usr/bin/python
-
 #
 # What is this?
 #  This Lambda function will probe (via HTTP or HTTPS) remote destinations and
@@ -212,7 +210,7 @@ def NotifyViaSNS(PreSharedKey):
         Logger.warning('Failed to extract any configuration details - notification will be empty')
         MessageText = 'No configuration details could be found - sorry about that!'
     else:
-        MessageText = "Configuration details:\n\n"
+        MessageText = 'Configuration details:\n\n'
         MessageText += 'Tunnel 1:\n Preshared key: %s\n AWS public IP: %s\n Your IP: %s\n AWS tunnel IP: %s\n Your tunnel IP: %s\n' % \
                        (PresharedKeys[0],AWSPublicAddresses[0],CustomerPublicAddresses[0],AWSInsideAddresses[0],CustomerInsideAddresses[0])
         if len(PresharedKeys) > 1:
